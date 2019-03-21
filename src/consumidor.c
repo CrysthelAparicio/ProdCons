@@ -94,14 +94,14 @@ int main(int argc, char *argv[]) {
 void consumir(orden_compra_t *orden) {
   char *tarjeta;
   if (orden->tarjeta) {
-    tarjeta = "si\0";
+    tarjeta = "tarjeta\0";
   } else {
-    tarjeta = "no\0";
+    tarjeta = "efectivo\0";
   }
   printf("# orden:   %12d\n", orden->orden);
   printf("# cliente: %12d\n", orden->cliente);
   printf("monto:     %12.2f\n", orden->monto);
-  printf("tarjeta:   %12s\n", tarjeta);
+  printf("tipo de pago: %9s\n", tarjeta);
   printf("fecha:     %12s\n", orden->fecha);
   printf("\n");
 }
