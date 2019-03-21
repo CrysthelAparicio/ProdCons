@@ -4,8 +4,9 @@
 #include <unistd.h>
 #include <string.h>
 
-#define KEY 5504
-#define BUF_MAX 1024
+#define KEY 2211
+#define BUF_MAX 256
+#define LIMITE 26843545
 
 typedef struct orden_compra_t {
   unsigned int orden;
@@ -26,6 +27,7 @@ typedef struct segmento_t {
   sem_t mutex_cons;
   sem_t mutex_size;
   int size;
+  unsigned int pk;
 } segmento_t;
 
 void producir(int key, orden_compra_t *);
@@ -51,6 +53,7 @@ int main(int argc, char *argv[]) {
   if (!(shared_mem->iniciado)) {
     printf("inicializando memoria compartida...\n");
     shared_mem->iniciado = 1;
+    shared_mem->pk = 1;
     sem_init(&(shared_mem->lleno), 1, BUF_MAX);
     sem_init(&(shared_mem->vacio), 1, 0);
     sem_init(&(shared_mem->mutex_prod), 1, 1);
@@ -58,18 +61,19 @@ int main(int argc, char *argv[]) {
     sem_init(&(shared_mem->mutex_size), 1, 1);
   }
 
-  // agregar una orden de compra cada segundo, hasta 5 ordenes
-  for (int agregadas = 0; agregadas < 5; agregadas += 1) {
-    printf("agregando orden #%d\n", agregadas);
+  // agregar una orden de compra cada segundo
+  for (int agregadas = 0; agregadas < LIMITE; agregadas += 1) {
     sem_wait(&(shared_mem->lleno));
 
     // meter una nueva orden
     sem_wait(&(shared_mem->mutex_prod));
     int i = shared_mem->pos_prod;
-    producir(i + 1, &(shared_mem->buffer[i]));
+    int key = shared_mem->pk;
+    producir(key, &(shared_mem->buffer[i]));
 
     // siguiente posicion de productor
     shared_mem->pos_prod = (shared_mem->pos_prod + 1) % BUF_MAX;
+    shared_mem->pk += 1;
 
     sem_post(&(shared_mem->mutex_prod));
 
@@ -87,9 +91,10 @@ int main(int argc, char *argv[]) {
 }
 
 void producir(int key, orden_compra_t *orden) {
-  orden->orden = key * 2;
+  printf("agregando orden con id %4d\n", key);
+  orden->orden = key;
   orden->cliente = key * 45;
-  orden->monto = 77.53 * key;
+  orden->monto = key * 77.53;
   orden->tarjeta = key % 2;
-  strcpy(orden->fecha, "14/11/1990");
+  sprintf(orden->fecha, "%2d/%2d/20%2d", (key * 3) % 28 + 1, key % 12 + 1, key % 10 + 10);
 }

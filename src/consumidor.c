@@ -3,9 +3,11 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
+#include <stdlib.h>
 
-#define KEY 5504
-#define BUF_MAX 1024
+#define KEY 2211
+#define BUF_MAX 256
+#define LIMITE 26843545
 
 typedef struct orden_compra_t {
   unsigned int orden;
@@ -58,14 +60,14 @@ int main(int argc, char *argv[]) {
     sem_init(&(shared_mem->mutex_size), 1, 1);
   }
 
-  // leer 5 ordenes de compra cada segundo, hasta 5 ordenes
-  for (int leidas = 0; leidas < 5; leidas += 1) {
-    printf("consumiendo orden #%d\n", leidas);
+  // consumir una orden de compra cada segundo
+  for (int leidas = 0; leidas < LIMITE; leidas += 1) {
     sem_wait(&(shared_mem->vacio));
 
     // leer una nueva orden
     sem_wait(&(shared_mem->mutex_cons));
-    orden_compra_t *orden_temp = &shared_mem->buffer[shared_mem->pos_cons];
+    orden_compra_t *orden_temp = malloc(sizeof(*orden_temp));
+    *orden_temp = shared_mem->buffer[shared_mem->pos_cons];
 
     // siguiente posicion de consumidor
     shared_mem->pos_cons = (shared_mem->pos_cons + 1) % BUF_MAX;
@@ -73,13 +75,15 @@ int main(int argc, char *argv[]) {
     sem_post(&(shared_mem->mutex_cons));
 
     // cambiar size
-    // sem_wait(&(shared_mem->mutex_size));
-    // shared_mem->size -= 1;
-    // sem_post(&(shared_mem->mutex_size));
+    sem_wait(&(shared_mem->mutex_size));
+    shared_mem->size -= 1;
+    printf("restantes: %12d\n", shared_mem->size);
+    sem_post(&(shared_mem->mutex_size));
 
     sem_post(&(shared_mem->lleno));
 
     consumir(orden_temp);
+    free(orden_temp);
 
     sleep(1);
   }
@@ -88,10 +92,16 @@ int main(int argc, char *argv[]) {
 }
 
 void consumir(orden_compra_t *orden) {
-  printf("orden: %d\n", orden->orden);
-  printf("cliente: %d\n", orden->cliente);
-  printf("monto: %f\n", orden->monto);
-  printf("tarjeta: %d\n", orden->tarjeta);
-  printf("fecha: %s\n", orden->fecha);
+  char *tarjeta;
+  if (orden->tarjeta) {
+    tarjeta = "si\0";
+  } else {
+    tarjeta = "no\0";
+  }
+  printf("# orden:   %12d\n", orden->orden);
+  printf("# cliente: %12d\n", orden->cliente);
+  printf("monto:     %12.2f\n", orden->monto);
+  printf("tarjeta:   %12s\n", tarjeta);
+  printf("fecha:     %12s\n", orden->fecha);
   printf("\n");
 }
