@@ -4,9 +4,10 @@
 #include <unistd.h>
 #include <string.h>
 #include <stdlib.h>
+#include <signal.h>
 
 #define KEY 2211
-#define BUF_MAX 256
+#define BUF_MAX 1024
 #define LIMITE 26843545
 
 typedef struct orden_compra_t {
@@ -30,11 +31,18 @@ typedef struct segmento_t {
   int size;
 } segmento_t;
 
+void salir(int);
 void consumir(orden_compra_t *);
 
 segmento_t *shared_mem;
+static volatile int flag_salir = 0;
 
 int main(int argc, char *argv[]) {
+  int modo_sleep = 0;
+  if (argc > 1) {
+    modo_sleep = strcmp(argv[1], "sleep") == 0;
+  }
+
   key_t key = KEY;
   int shmid = shmget(key, sizeof(segmento_t), 0644 | IPC_CREAT);
 
@@ -50,6 +58,12 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
+  if (modo_sleep) {
+    printf("sleep de 1 segundo activado\n");
+  } else {
+    printf("sleep desactivado\n");
+  }
+
   if (!(shared_mem->iniciado)) {
     printf("inicializando memoria compartida...\n");
     shared_mem->iniciado = 1;
@@ -59,6 +73,8 @@ int main(int argc, char *argv[]) {
     sem_init(&(shared_mem->mutex_cons), 1, 1);
     sem_init(&(shared_mem->mutex_size), 1, 1);
   }
+
+  signal(SIGINT, salir);
 
   // consumir una orden de compra cada segundo
   for (int leidas = 0; leidas < LIMITE; leidas += 1) {
@@ -85,7 +101,13 @@ int main(int argc, char *argv[]) {
     consumir(orden_temp);
     free(orden_temp);
 
-    sleep(1);
+    if (flag_salir) {
+      break;
+    }
+
+    if (modo_sleep) {
+      sleep(1);
+    }
   }
 
   return 0;
@@ -104,4 +126,8 @@ void consumir(orden_compra_t *orden) {
   printf("tipo de pago: %9s\n", tarjeta);
   printf("fecha:     %12s\n", orden->fecha);
   printf("\n");
+}
+
+void salir(int s) {
+  flag_salir = 1;
 }
